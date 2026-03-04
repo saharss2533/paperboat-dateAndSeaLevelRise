@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body{
+  margin:0;
+  background:black;
+  color:red;
+  font-family:monospace;
+}
+
+#year{
+  position:absolute;
+  top:3%;
+  left:25%;
+  font-size:32px;
+}
+
+#sea{
+  position:absolute;
+  top:3%;
+  right:25%;
+  font-size:32px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="year">YEAR: 2026</div>
+<div id="sea">SEA LEVEL RISE: 2ft</div>
+
+<script>
+let start=2026, end=2100, duration=180000;
+let step=duration/(end-start);
+let year=start;
+
+setInterval(()=>{
+  if(year<end){
+    year++;
+    document.getElementById("year").textContent="YEAR: "+year;
+  }
+}, step);
+</script>
+
+</body>
+</html>
