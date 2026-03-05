@@ -1,49 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <style>
-body{
-  margin:0;
-  background:black;
-  color:red;
-  font-family:monospace;
-}
-
-#year{
-  position:absolute;
-  top:3%;
-  left:5%;
-  font-size:12px;
-}
-
-#sea{
-  position:absolute;
-  top:3%;
-  left:40%;
-  font-size:12px;
-}
-  
+  body{ margin:0; background:black; color:red; font-family:monospace; }
+  #year{ position:absolute; top:3%; left:5%; font-size:12px; }
+  #sea { position:absolute; top:3%; left:40%; font-size:12px; }
 </style>
 </head>
-
 <body>
-
-<div id="year">YEAR: 2026</div>
-<div id="sea">SEA LEVEL RISE: 2ft</div>
+  <div id="year">YEAR: 2026</div>
+  <div id="sea">SEA LEVEL RISE: …</div>
 
 <script>
-let start=2026, end=2100, duration=180000;
-let step=duration/(end-start);
-let year=start;
+  // ✅ Your published CSV
+  const CSV_URL =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSwIGH5wxZfET_1lc2h4Mi3uyQSyhaOhPNZNdZx0MHbNKHWy4ujpvYEfvfNJCcdBDMyySReadyiPt74/pub?gid=0&single=true&output=csv";
 
-setInterval(()=>{
-  if(year<end){
-    year++;
-    document.getElementById("year").textContent="YEAR: "+year;
+  const startYear = 2026;
+  const endYear = 2100;
+  const durationMs = 180000; // 3 minutes
+
+  const yearEl = document.getElementById("year");
+  const seaEl  = document.getElementById("sea");
+
+  const seaByYear = new Map();
+
+  function parseCSVLine(line){
+    const out=[]; let cur=""; let inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch === '"'){
+        if(inQ && line[i+1] === '"'){ cur+='"'; i++; }
+        else inQ = !inQ;
+      } else if(ch === "," && !inQ){
+        out.push(cur); cur="";
+      } else cur += ch;
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
   }
-}, step);
-</script>
 
+  function stripQ(s){ return String(s).replace(/^"(.*)"$/,"$1").trim(); }
+
+  function isMissing(v){
+    const s = String(v ?? "").trim();
+    return s==="" || s==="-" || s==="–" || s==="—" || s.toLowerCase()==="na" || s.toLowerCase()==="n/a";
+  }
+
+  function formatSea(v){
+    if(isMissing(v)) return "…";
+    const s = String(v).trim();
+    if(/ft/i.test(s)) return s;                     // already has ft
+    if(/^-?\d+(\.\d+)?$/.test(s)) return s + " ft";  // number -> add ft
+    return s;
+  }
+
+  function render(year){
+    yearEl.textContent = "YEAR: " + year;
+    seaEl.textContent  = "SEA LEVEL RISE: " + formatSea(seaByYear.get(year));
+  }
+
+  function startAnimation(){
+    const stepMs = durationMs / (endYear - startYear);
+    let y = startYear;
+    render(y);
+
+    const timer = setInterval(()=>{
+      if(y >= endYear){ clearInterval(timer); y = endYear; }
+      else y++;
+      render(y);
+    }, stepMs);
+  }
+
+  async function loadData(){
+    try{
+      // cache-bust so edits in Sheets reflect quickly
+      const url = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+      const res = await fetch(url, { cache:"no-store" });
+      if(!res.ok) throw new Error("HTTP " + res.status);
+
+      const csv = await res.text();
+      const lines = csv.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+      if(lines.length < 2) throw new Error("CSV has no rows.");
+
+      const header = parseCSVLine(lines[0]).map(stripQ);
+      const yearIdx = header.findIndex(h => h.toUpperCase() === "YEAR");
+      const seaIdx  = header.findIndex(h => h.toUpperCase() === "SEA LEVEL RISE");
+
+      if(yearIdx === -1 || seaIdx === -1){
+        throw new Error("Missing headers. Found: " + header.join(" | "));
+      }
+
+      for(let i=1;i<lines.length;i++){
+        const row = parseCSVLine(lines[i]).map(stripQ);
+        const yr = parseInt(row[yearIdx], 10);
+        const sea = row[seaIdx];
+        if(!Number.isNaN(yr) && !isMissing(sea)) seaByYear.set(yr, sea);
+      }
+
+      // refresh sea value for currently displayed year
+      const currentYear = parseInt(yearEl.textContent.replace("YEAR:", "").trim(), 10);
+      if(!Number.isNaN(currentYear)) render(currentYear);
+
+    }catch(e){
+      console.warn("Data load failed:", e);
+      seaEl.textContent = "SEA LEVEL RISE: (data cannot load)";
+    }
+  }
+
+  // ✅ years change no matter what; data loads in parallel
+  startAnimation();
+  loadData();
+</script>
 </body>
 </html>
