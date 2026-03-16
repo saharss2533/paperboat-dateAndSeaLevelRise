@@ -3,14 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <style>
-  body{ margin:0; background:black; color:red; font-family:monospace; }
-  #year{ position:absolute; top:1%; left:3%; font-size:12px; }
-  #sea { position:absolute; top:1%; left:30%; font-size:12px; }
+  body{
+    margin:0;
+    background:black;
+    color:red;
+    font-family:monospace;
+  }
+
+  #info{
+    position:absolute;
+    top:1%;
+    left:3%;
+    font-size:12px;
+    white-space:nowrap;
+  }
 </style>
 </head>
 <body>
-  <div id="year">YEAR: 2026</div>
-  <div id="sea">SEA LEVEL RISE: …</div>
+
+<div id="info">
+  <span id="year">YEAR: 2026</span> - <span id="sea">SEA LEVEL RISE: …</span>
+</div>
 
 <script>
   // ✅ Your published CSV
@@ -51,8 +64,8 @@
   function formatSea(v){
     if(isMissing(v)) return "…";
     const s = String(v).trim();
-    if(/ft/i.test(s)) return s;                     // already has ft
-    if(/^-?\d+(\.\d+)?$/.test(s)) return s + " ft";  // number -> add ft
+    if(/ft/i.test(s)) return s;
+    if(/^-?\d+(\.\d+)?$/.test(s)) return s + " ft";
     return s;
   }
 
@@ -75,7 +88,6 @@
 
   async function loadData(){
     try{
-      // cache-bust so edits in Sheets reflect quickly
       const url = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
 
       const res = await fetch(url, { cache:"no-store" });
@@ -100,7 +112,6 @@
         if(!Number.isNaN(yr) && !isMissing(sea)) seaByYear.set(yr, sea);
       }
 
-      // refresh sea value for currently displayed year
       const currentYear = parseInt(yearEl.textContent.replace("YEAR:", "").trim(), 10);
       if(!Number.isNaN(currentYear)) render(currentYear);
 
@@ -110,7 +121,6 @@
     }
   }
 
-  // ✅ years change no matter what; data loads in parallel
   startAnimation();
   loadData();
 </script>
